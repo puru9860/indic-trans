@@ -144,13 +144,19 @@ class BaseTransliterator(object):
         else:
             scores = self.coef_.dot(X.T).T
         if self.decode == 'viterbi':
-            y = self.decoder.decode(scores,
+            y, scores = self.decoder.decode(scores,
                                     self.intercept_trans_,
                                     self.intercept_init_,
                                     self.intercept_final_)
+            bs, _ = scores.shape
+            softmax_scores = np.zeros_like(scores)
+            for i in range(bs):
+                softmax_scores[i] = self.softmax(scores[i])
+
             y = [self.classes_[pid] for pid in y]
             y = ''.join(y).replace('_', '')
-            return y
+            
+            return y, np.min(np.max(softmax_scores, axis=1))
         else:
             top_seq = list()
             y = self.decoder.decode(scores,
@@ -182,6 +188,7 @@ class BaseTransliterator(object):
     def transliterate(self, text, k_best=None):
         """Single best transliteration using viterbi decoding."""
         trans_list = []
+        scores = []
         text = self.convert_to_wx(text)
         text = text.replace('\t', self.tab)
         text = text.replace(' ', self.space)
@@ -193,12 +200,19 @@ class BaseTransliterator(object):
             trans_line = str()
             line = self.non_alpha.split(line)
             for word in line:
-                trans_line += self.case_trans(word)
+                result = self.case_trans(word)
+                if type(result) == tuple:
+                    text, score = result
+                else:
+                    text = result
+                    score = 1.0
+                scores.append(score)
+                trans_line += text 
             trans_list.append(trans_line)
         trans_line = '\n'.join(trans_list)
         trans_line = trans_line.replace(self.space, ' ')
         trans_line = trans_line.replace(self.tab, '\t')
-        return trans_line
+        return trans_line,  np.min(scores)
 
     def top_n_trans(self, text, k_best=5):
         """Returns k-best transliterations using beamsearch decoding.
@@ -220,3 +234,9 @@ class BaseTransliterator(object):
             else:
                 trans_word.append([word] * k_best)
         return [''.join(w) for w in zip(*trans_word)]
+    
+    
+    def softmax(self, x):
+        """Compute softmax values for each sets of scores in x."""
+        e_x = np.exp(x - np.max(x))
+        return e_x / e_x.sum()

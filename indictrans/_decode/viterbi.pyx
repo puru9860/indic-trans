@@ -51,4 +51,4 @@ def decode(np.ndarray[ndim=2, dtype=np.float64_t] score,
     for i in range(n_samples - 2, -1, -1):
         path[i] = backp[i + 1, path[i + 1]]
 
-    return path
+    return path, score
