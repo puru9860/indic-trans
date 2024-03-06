@@ -212,7 +212,8 @@ class BaseTransliterator(object):
         trans_line = '\n'.join(trans_list)
         trans_line = trans_line.replace(self.space, ' ')
         trans_line = trans_line.replace(self.tab, '\t')
-        return trans_line,  np.min(scores)
+        score = np.min(scores) if len(scores) > 0 else 1.0
+        return trans_line, score
 
     def top_n_trans(self, text, k_best=5):
         """Returns k-best transliterations using beamsearch decoding.
